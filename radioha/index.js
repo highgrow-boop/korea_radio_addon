@@ -211,13 +211,13 @@ function return_pipe(urls, resp, req, key) {
         "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "3",
         "-loglevel", "error", "-i", urls,
         "-c:a", "mp3", "-b:a", `${bitrate}k`, "-ac", "2",
-        "-bufsize", "256K", "-f", "wav", "pipe:1"
+        "-bufsize", "256K", "-f", "mp3", "pipe:1"
     ];
 
     console.log(`[Smart Engine] ${key} - ${bitrate}k (Buffer: 256K)`);
 
     resp.writeHead(200, {
-        'Content-Type': 'audio/wav',
+        'Content-Type': 'audio/mpeg',
         'Transfer-Encoding': 'chunked',
         'Connection': 'keep-alive',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
