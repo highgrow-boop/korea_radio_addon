@@ -286,18 +286,26 @@ const liveServer = http.createServer(async (req, resp) => {
     }
 
     // 팟캐스트 재생 (ffmpeg 변환)
-    if (urlPath === "/podcast/play") {
-        if (urlParams.get('token') === mytoken) {
-            const list = await fetchPodcastList();
-            const idx = parseInt(urlParams.get('idx') || '0');
-            if (idx >= 0 && idx < list.length && list[idx].url) {
-                console.log(`[Podcast] Playing idx=${idx}: ${list[idx].title}`);
-                return_pipe(list[idx].url, resp, req, 'podcast', 128);
-            } else { resp.statusCode = 404; resp.end("Not Found"); }
-        } else { resp.statusCode = 403; resp.end("Forbidden"); }
-        return;
+   if (urlPath === "/podcast/play") {
+    if (urlParams.get('token') === mytoken) {
+        const list = await fetchPodcastList();
+        const idx = parseInt(urlParams.get('idx') || '0');
+        const start = parseInt(urlParams.get('start') || '0');
+        if (idx >= 0 && idx < list.length && list[idx].url) {
+            console.log(`[Podcast] Playing idx=${idx} start=${start}s`);
+            // ffmpegArgs에 start 추가
+            const ffmpegArgs = [
+                "-headers", `User-Agent: ${FULL_UA}\r\n`,
+                "-ss", start.toString(),  // 시작 위치
+                "-reconnect", "1", "-reconnect_streamed", "1",
+                "-loglevel", "error", "-i", list[idx].url,
+                "-c:a", "mp3", "-b:a", "128k", "-ac", "2",
+                "-bufsize", "256K", "-f", "mp3", "pipe:1"
+            ];
+            // ... 기존 ffmpeg spawn 코드
+        }
     }
-
+}
     if (urlPath === "/") {
         resp.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         const currentData = getRadioData();
