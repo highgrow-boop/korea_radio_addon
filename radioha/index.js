@@ -21,33 +21,22 @@ async function fetchPodcastList() {
         return podcastCache;
     }
     try {
-        const response = await axios.get('https://feed.podbbang.com/feeds/75', {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            timeout: 8000
-        });
-        const xml = response.data;
-        const items = [];
-        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-        let match;
-        while ((match = itemRegex.exec(xml)) !== null && items.length < 20) {
-            const itemXml = match[1];
-            const titleMatch = itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ||
-                               itemXml.match(/<title>(.*?)<\/title>/);
-            const urlMatch = itemXml.match(/url="([^"]+\.mp3[^"]*)"/);
-            if (titleMatch && urlMatch) {
-                items.push({
-                    title: titleMatch[1].trim().substring(0, 40),
-                    url: urlMatch[1]
-                });
-            }
-        }
-        if (items.length > 0) {
-            podcastCache = items;
+        const response = await axios.get(
+            'https://itunes.apple.com/lookup?id=437788220&media=podcast&entity=podcastEpisode&limit=20&country=kr',
+            { headers: { 'User-Agent': FULL_UA }, timeout: 8000 }
+        );
+        const items = response.data.results.filter(r => r.wrapperType === 'podcastEpisode');
+        const parsed = items.slice(0, 20).map(item => ({
+            title: (item.trackName || '').substring(0, 40),
+            url: item.episodeUrl || ''
+        })).filter(ep => ep.url !== '');
+        if (parsed.length > 0) {
+            podcastCache = parsed;
             lastPodcastUpdate = now;
             console.log(`[Podcast] ${podcastCache.length}개 에피소드 캐시 완료`);
         }
     } catch(e) {
-        console.error('[Podcast] RSS 파싱 실패:', e.message);
+        console.error('[Podcast] iTunes API 실패:', e.message);
     }
     return podcastCache;
 }
