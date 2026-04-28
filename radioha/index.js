@@ -28,7 +28,7 @@ async function fetchPodcastList() {
         const items = response.data.results.filter(r => r.wrapperType === 'podcastEpisode');
         const parsed = items.slice(0, 20).map(item => ({
             title: (item.trackName || '').substring(0, 40),
-            url: item.episodeUrl || ''
+            url: item.episodeUrl || '',
             desc: (item.description || '').substring(0, 100)  // 추가
         })).filter(ep => ep.url !== '');
         if (parsed.length > 0) {
