@@ -27,10 +27,15 @@ async function fetchPodcastList() {
         );
         const items = response.data.results.filter(r => r.wrapperType === 'podcastEpisode');
         const parsed = items.slice(0, 20).map(item => ({
-            title: (item.trackName || '').substring(0, 40),
-            url: item.episodeUrl || '',
-            desc: (item.description || '').substring(0, 100)  // 추가
-        })).filter(ep => ep.url !== '');
+    title: (item.trackName || '').substring(0, 40),
+    url: item.episodeUrl || '',
+    desc: (item.description || '')
+        .replace(/\n/g, ' ')
+        .replace(/[↑↓→←↔]/g, '')
+        .replace(/[''""]/g, "'")
+        .replace(/[^\x00-\x7E\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/g, '')
+        .substring(0, 100)
+})).filter(ep => ep.url !== '');
         if (parsed.length > 0) {
             podcastCache = parsed;
             lastPodcastUpdate = now;
