@@ -80,7 +80,7 @@ async function fetchPodcastList() {
                         .replace(/[↑↓→←↔]/g, '')
                         .replace(/[''""]/g, "'")
                         .replace(/[^\x00-\x7E\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/g, '')
-                        .substring(0, 100);
+                        .substring(0, 200);
                 }
 
                 items.push({
