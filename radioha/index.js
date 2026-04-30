@@ -34,7 +34,8 @@ async function fetchPodcastList() {
         .replace(/[↑↓→←↔]/g, '')
         .replace(/[''""]/g, "'")
         .replace(/[^\x00-\x7E\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/g, '')
-        .substring(0, 100)
+        .substring(0, 100),
+    duration: Math.floor((item.trackTimeMillis || 0) / 1000)  // 초 단위
 })).filter(ep => ep.url !== '');
         if (parsed.length > 0) {
             podcastCache = parsed;
