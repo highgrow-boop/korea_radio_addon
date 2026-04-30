@@ -21,29 +21,84 @@ async function fetchPodcastList() {
         return podcastCache;
     }
     try {
-        const response = await axios.get(
-            'https://itunes.apple.com/lookup?id=437788220&media=podcast&entity=podcastEpisode&limit=20&country=kr',
+        // 1. RSS 피드 URL 가져오기
+        const lookupRes = await axios.get(
+            'https://itunes.apple.com/lookup?id=437788220',
             { headers: { 'User-Agent': FULL_UA }, timeout: 8000 }
         );
-        const items = response.data.results.filter(r => r.wrapperType === 'podcastEpisode');
-        const parsed = items.slice(0, 20).map(item => ({
-    title: (item.trackName || '').substring(0, 40),
-    url: item.episodeUrl || '',
-    desc: (item.description || '')
-        .replace(/\n/g, ' ')
-        .replace(/[↑↓→←↔]/g, '')
-        .replace(/[''""]/g, "'")
-        .replace(/[^\x00-\x7E\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/g, '')
-        .substring(0, 100),
-    duration: Math.floor((item.trackTimeMillis || 0) / 1000)  // 초 단위
-})).filter(ep => ep.url !== '');
-        if (parsed.length > 0) {
-            podcastCache = parsed;
+        const feedUrl = lookupRes.data.results[0].feedUrl;
+        console.log(`[Podcast] RSS feed: ${feedUrl}`);
+
+        // 2. RSS XML 파싱
+        const rssRes = await axios.get(feedUrl, {
+            headers: { 'User-Agent': FULL_UA },
+            timeout: 8000
+        });
+        const xml = rssRes.data;
+
+        // 3. item 파싱
+        const items = [];
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        let match;
+        while ((match = itemRegex.exec(xml)) !== null && items.length < 20) {
+            const itemXml = match[1];
+
+            // 제목
+            const titleMatch = itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ||
+                               itemXml.match(/<title>(.*?)<\/title>/);
+
+            // MP3 URL
+            const urlMatch = itemXml.match(/url="([^"]+\.mp3[^"]*)"/);
+
+            // duration (itunes:duration)
+            const durationMatch = itemXml.match(/<itunes:duration>(\d+)<\/itunes:duration>/) ||
+                                  itemXml.match(/<itunes:duration>(\d+:\d+:\d+)<\/itunes:duration>/) ||
+                                  itemXml.match(/<itunes:duration>(\d+:\d+)<\/itunes:duration>/);
+
+            // desc
+            const descMatch = itemXml.match(/<itunes:summary><!\[CDATA\[([\s\S]*?)\]\]><\/itunes:summary>/) ||
+                              itemXml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/);
+
+            if (titleMatch && urlMatch) {
+                // duration 파싱 (HH:MM:SS 또는 MM:SS 또는 초)
+                let durationSec = 0;
+                if (durationMatch) {
+                    const d = durationMatch[1];
+                    if (d.includes(':')) {
+                        const parts = d.split(':').map(Number);
+                        if (parts.length === 3) durationSec = parts[0]*3600 + parts[1]*60 + parts[2];
+                        else if (parts.length === 2) durationSec = parts[0]*60 + parts[1];
+                    } else {
+                        durationSec = parseInt(d) || 0;
+                    }
+                }
+
+                let desc = '';
+                if (descMatch) {
+                    desc = descMatch[1]
+                        .replace(/\n/g, ' ')
+                        .replace(/[↑↓→←↔]/g, '')
+                        .replace(/[''""]/g, "'")
+                        .replace(/[^\x00-\x7E\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/g, '')
+                        .substring(0, 100);
+                }
+
+                items.push({
+                    title: titleMatch[1].trim().substring(0, 40),
+                    url: urlMatch[1],
+                    desc: desc,
+                    duration: durationSec
+                });
+            }
+        }
+
+        if (items.length > 0) {
+            podcastCache = items;
             lastPodcastUpdate = now;
-            console.log(`[Podcast] ${podcastCache.length}개 에피소드 캐시 완료`);
+            console.log(`[Podcast] ${items.length}개 에피소드 캐시 완료 (RSS)`);
         }
     } catch(e) {
-        console.error('[Podcast] iTunes API 실패:', e.message);
+        console.error('[Podcast] RSS 파싱 실패:', e.message);
     }
     return podcastCache;
 }
