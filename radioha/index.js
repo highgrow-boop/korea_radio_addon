@@ -262,6 +262,10 @@ function return_pipe(urls, resp, req, key, fixedBitrate) {
 
     console.log(`[Smart Engine] ${key} - ${bitrate}k (Buffer: 256K)`);
 
+    const xffmpeg = child_process.spawn("ffmpeg", ffmpegArgs, { detached: false });
+
+// ffmpeg 첫 데이터 올 때까지 기다렸다가 응답 시작
+xffmpeg.stdout.once('data', (firstChunk) => {
     resp.writeHead(200, {
         'Content-Type': 'audio/mpeg',
         'Transfer-Encoding': 'chunked',
@@ -270,9 +274,11 @@ function return_pipe(urls, resp, req, key, fixedBitrate) {
         'Pragma': 'no-cache',
         'Expires': '0'
     });
-
-    const xffmpeg = child_process.spawn("ffmpeg", ffmpegArgs, { detached: false });
+    resp.write(firstChunk);
     xffmpeg.stdout.pipe(resp);
+});
+
+xffmpeg.stdout.on('error', () => { if(xffmpeg) xffmpeg.kill(); });
     const cleanup = () => { if (xffmpeg) xffmpeg.kill(); };
     req.on("close", cleanup);
     req.on("end", cleanup);
