@@ -359,15 +359,32 @@ const liveServer = http.createServer(async (req, resp) => {
       const idx = parseInt(urlParams.get('idx') || '0');
       const start = parseInt(urlParams.get('start') || '0');
       if (idx >= 0 && idx < list.length && list[idx].url) {
-        console.log(`[Podcast] Playing idx=${idx} start=${start}s`);
-        const ffmpegArgs = [
-          "-headers", `User-Agent: ${FULL_UA}\r\n`,
-          "-ss", start.toString(),
-          "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "3",
-          "-loglevel", "error", "-i", list[idx].url,
-          "-c:a", "mp3", "-b:a", "128k", "-ac", "2",
-          "-bufsize", "256K", "-f", "mp3", "pipe:1"
-        ];
+  console.log(`[Podcast] Playing idx=${idx} start=${start}s`);
+  
+  // 실제 URL 먼저 resolve
+  let finalUrl = list[idx].url;
+  try {
+    const res = await axios.head(list[idx].url, {
+      headers: { 'User-Agent': FULL_UA },
+      maxRedirects: 5,
+      timeout: 5000
+    });
+    if(res.request && res.request.res && res.request.res.responseUrl) {
+      finalUrl = res.request.res.responseUrl;
+      console.log(`[Podcast] Resolved URL: ${finalUrl}`);
+    }
+  } catch(e) {
+    console.log(`[Podcast] URL resolve failed, using original`);
+  }
+
+  const ffmpegArgs = [
+    "-headers", `User-Agent: ${FULL_UA}\r\n`,
+    "-ss", start.toString(),
+    "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "3",
+    "-loglevel", "error", "-i", finalUrl,  // 실제 URL 사용
+    "-c:a", "mp3", "-b:a", "128k", "-ac", "2",
+    "-bufsize", "256K", "-f", "mp3", "pipe:1"
+  ];
         resp.writeHead(200, {
           'Content-Type': 'audio/mpeg',
           'Transfer-Encoding': 'chunked',
